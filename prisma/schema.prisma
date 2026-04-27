@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Multi-tenant company ─────────────────────────────────────────────────────
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique   // used in URLs, e.g. "acme-corp"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users  User[]
+  skus   SKU[]
+  quotes Quote[]
+}
+
+// ─── Users (company employees) ───────────────────────────────────────────────
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  hashedPassword String
+  name           String
+  role           Role     @default(EDITOR)
+  companyId      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  quotes  Quote[]
+}
+
+enum Role {
+  EDITOR        // can create and edit quotes
+  DOMAIN_ADMIN  // full control: override pricing, lock items, approve
+  SUPER_ADMIN   // platform-level: can see all companies (for operators)
+}
+
+// ─── SKU catalog ─────────────────────────────────────────────────────────────
+
+model SKU {
+  id          String   @id @default(cuid())
+  code        String
+  description String
+  unitPrice   Decimal  @db.Decimal(12, 2)
+  active      Boolean  @default(true)
+  companyId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  lineItems LineItem[]
+
+  @@unique([code, companyId])
+}
+
+// ─── Quotes ───────────────────────────────────────────────────────────────────
+
+model Quote {
+  id            String      @id @default(cuid())
+  number        String      @unique  // e.g. Q-2024-0001
+  companyId     String
+  createdById   String
+  status        QuoteStatus @default(DRAFT)
+
+  // Customer info
+  customerName  String
+  customerEmail String
+  customerPhone String       // E.164 format, e.g. +18085551234
+
+  // Legal
+  legalTerms    String       @db.Text
+
+  // Lifecycle dates
+  validFrom     DateTime?
+  expiresAt     DateTime?
+
+  // Acceptance record (filled when customer agrees)
+  acceptedAt    DateTime?
+  acceptanceIp  String?
+  acceptanceAgent String?
+
+  // Token sent in customer email link (unique, single-use)
+  acceptanceToken String?    @unique
+
+  // SMS 2FA: verified phone + code state
+  smsVerifiedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy User       @relation(fields: [createdById], references: [id])
+  lineItems LineItem[]
+  auditLogs AuditLog[]
+  alerts    Alert[]
+}
+
+enum QuoteStatus {
+  DRAFT       // being built by editor/admin
+  SENT        // emailed to customer
+  VIEWED      // customer opened the acceptance link
+  REVISED     // admin changed something after sending
+  ACCEPTED    // customer completed 2FA + clicked I Agree
+  EXPIRED     // past expiresAt without acceptance
+  CANCELLED   // manually cancelled
+}
+
+// ─── Line items ───────────────────────────────────────────────────────────────
+
+model LineItem {
+  id          String         @id @default(cuid())
+  quoteId     String
+  skuId       String?        // null = free-form line item
+
+  description     String
+  quantity        Decimal    @db.Decimal(12, 4)
+  unitPrice       Decimal    @db.Decimal(12, 2)
+  totalPrice      Decimal    @db.Decimal(12, 2)  // quantity * unitPrice, or overridden
+  overridden      Boolean    @default(false)       // admin manually set totalPrice
+
+  notes           String?
+  customerVisible Boolean    @default(true)
+  editable        Boolean    @default(false)  // customer can request changes
+  locked          Boolean    @default(false)  // admin locked; no revision requests
+  sortOrder       Int        @default(0)
+  deletedAt       DateTime?  // soft delete
+
+  status    LineItemStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quote Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  sku   SKU?   @relation(fields: [skuId], references: [id])
+}
+
+enum LineItemStatus {
+  ACTIVE
+  MODIFIED
+  PENDING_REVISION
+  LOCKED
+}
+
+// ─── Audit log ────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  quoteId       String
+  actionType    String   // sent | viewed | sms_verified | accepted | revised |
+                         // line_add | line_edit | line_delete | line_override |
+                         // line_lock | status_change | cancelled
+  actorType     String   // user | customer | system
+  actorId       String?  // userId if actorType=user
+  actorRole     String?  // role at time of action
+
+  previousValue Json?
+  newValue      Json?
+
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+}
+
+// ─── Expiry alerts ────────────────────────────────────────────────────────────
+
+model Alert {
+  id        String    @id @default(cuid())
+  quoteId   String
+  alertType String    // expiry_30d | expiry_7d | expiry_1d | expired
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@unique([quoteId, alertType])
+}

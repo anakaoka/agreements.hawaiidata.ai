@@ -1,61 +1,103 @@
 # agreements.hawaiidata.ai
 
-> **Status: DEPRECATED (April 2026).** The live service at
-> `https://agreements.hawaiidata.ai/` is being shut down and the host
-> `144.202.122.152` may be deleted. This repository is the public
-> archive kept in case the service needs to be brought back later.
+A multi-company SaaS for quoting, emailing, and tracking signed agreements.
 
-## What it was
+> **Live site status:** Deprecated April 2026. This repo is both the public
+> archive and the full application source — everything needed to run or
+> rebuild the service is here.
 
-A proposal / contract-tracking CRM. The product gave organizations and
-their employees an easy way to email quotes to customers, let customers
-accept those quotes electronically, and gave the back office a way to
-track agreements through their lifecycle.
+## What it does
 
-## What's in this repo
+1. **Companies register** and get their own isolated workspace.
+2. **Admins build a SKU catalog** — reusable products/services with prices.
+3. **Editors create quotes** from SKUs, add line items, set validity dates.
+4. **Quote is emailed** to the customer (SendGrid) with a unique one-time link.
+5. **Customer verifies identity via SMS** (Twilio Verify) then clicks "I Agree".
+6. **Full audit log** is saved: IP, timestamp, user-agent, SMS verification.
+7. **Confirmation email** goes to the customer; quote status flips to ACCEPTED.
+8. **Management is alerted** 30, 7, and 1 day before a quote expires (cron job).
 
-- `docs/legal-enforceability.md` — research notes on what an emailed
-  agreement needs to satisfy ESIGN / UETA, so a future implementation
-  has a starting point for legal compliance.
-- `docs/scope-domain-admin-line-items.md` — last agreed scope change
-  before deprecation: Domain Admin permissions for line-item editing,
-  pricing overrides, audit logging, and revision workflow.
-- `scripts/backup-server.sh` — script to run **on the server** to
-  produce two tarballs: a *public-safe* code/config archive and a
-  *private* data archive (DB dumps, customer files, secrets). Only the
-  public archive should be committed here.
-- `RESTORE.md` — checklist for standing the service back up from this
-  archive.
+## Tech stack
 
-## What is NOT in this repo
+| Layer | Tool |
+|---|---|
+| Framework | Next.js 14 (App Router) |
+| Language | TypeScript |
+| Database | PostgreSQL + Prisma ORM |
+| Auth | NextAuth.js (JWT, email+password) |
+| Email | SendGrid |
+| SMS 2FA | Twilio Verify |
+| Styling | Tailwind CSS |
+| Scheduling | node-cron (via Next.js instrumentation) |
 
-The following are deliberately excluded and must never be committed
-here, because this is a public repository:
+## Roles
 
-- `.env` files, API keys, DB credentials, session secrets
-- SSH private keys, TLS private keys
-- Database dumps containing customer data
-- Signed agreement PDFs / customer-uploaded files
-- Anything in `node_modules/`, build artifacts, logs
+| Role | Can do |
+|---|---|
+| `EDITOR` | Create quotes, add line items |
+| `DOMAIN_ADMIN` | Everything above + override pricing, lock items, manage SKUs, approve quotes |
+| `SUPER_ADMIN` | Platform-wide access (operators only) |
 
-If you need to restore service, the *private* archive lives outside
-GitHub (see `RESTORE.md`).
+## Quick start
 
-## Bringing it back
+```bash
+# 1. Clone and install
+git clone https://github.com/anakaoka/agreements.hawaiidata.ai.git
+cd agreements.hawaiidata.ai
+npm install
 
-See `RESTORE.md`. High level:
+# 2. Copy and fill in env vars
+cp .env.example .env
+# Edit .env — you need: DATABASE_URL, NEXTAUTH_SECRET, SendGrid key, Twilio creds
 
-1. Provision a new host (any small Linux VM).
-2. Reinstall the runtime stack documented in this archive.
-3. Restore application code from this repo.
-4. Restore data from the *private* tarball (kept off-GitHub).
-5. Reissue SendGrid + any other API keys (do not reuse old ones).
-6. Re-point DNS for `agreements.hawaiidata.ai`.
+# 3. Set up the database
+npm run db:push        # apply schema to a new Postgres DB
+# (or: npm run db:migrate for a migration-tracked setup)
 
-## History
+# 4. Run dev server
+npm run dev
+# → http://localhost:3000
 
-Built as an internal CRM for emailing and tracking quotes /
-agreements. Wound down in April 2026 in favor of consolidating tooling
-elsewhere. The legal-enforceability notes and the line-item scope
-update were the last two design artifacts before deprecation; both are
-preserved under `docs/`.
+# 5. Register your first company at http://localhost:3000/register
+```
+
+## Production deployment (single VPS)
+
+```bash
+npm run build
+npm run start          # runs on port 3000; put nginx in front
+```
+
+The cron job (expiry alerts) starts automatically via `src/instrumentation.ts`
+when the Node.js runtime starts. No separate process needed.
+
+See `RESTORE.md` for a full re-provisioning checklist.
+
+## Environment variables
+
+See `.env.example` for all required variables and where to get them:
+
+- **DATABASE_URL** — PostgreSQL connection string
+- **NEXTAUTH_SECRET** — random 32-byte string (`openssl rand -base64 32`)
+- **NEXTAUTH_URL** — public URL of the app
+- **SENDGRID_API_KEY** / **SENDGRID_FROM_EMAIL** — verified SendGrid sender
+- **TWILIO_ACCOUNT_SID** / **TWILIO_AUTH_TOKEN** / **TWILIO_VERIFY_SERVICE_SID**
+
+## Legal compliance
+
+This system is designed to satisfy ESIGN / UETA requirements for electronic
+agreements. See `docs/legal-enforceability.md` for the full analysis.
+
+Key implementation points:
+- Customer identity tied to a verified email + phone (2FA)
+- Affirmative acceptance action ("I Agree" button after SMS verify)
+- Electronic consent disclosure shown before acceptance
+- Audit log: IP, timestamp, user-agent, agreement version, SMS verification status
+- Confirmation email serves as the customer's electronic receipt
+
+## Docs
+
+- `docs/legal-enforceability.md` — ESIGN/UETA analysis
+- `docs/scope-domain-admin-line-items.md` — last scope update before deprecation
+- `scripts/backup-server.sh` — server backup script (for ops)
+- `RESTORE.md` — rebuild playbook

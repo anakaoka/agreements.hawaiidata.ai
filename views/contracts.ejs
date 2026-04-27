@@ -1,0 +1,53 @@
+<%- include('layout-head', { pageTitle: 'Contracts', activePage: 'contracts' }) %>
+
+<div class="page-header">
+  <h2>Contracts</h2>
+  <% if (user.role !== 'customer') { %>
+    <a href="/contracts/new" class="btn btn-primary">+ New Contract</a>
+  <% } %>
+</div>
+
+<div class="table-container">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Title</th>
+        <% if (user.role !== 'customer') { %><th>Customer</th><% } %>
+        <th>Status</th>
+        <th>Value</th>
+        <th>Start</th>
+        <th>End</th>
+        <th>Signatures</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (contracts.length === 0) { %>
+        <tr><td colspan="8">
+          <div class="empty-state">
+            <h3>No contracts yet</h3>
+            <p><%= user.role === 'customer' ? 'You have no contracts assigned.' : 'Create your first contract.' %></p>
+          </div>
+        </td></tr>
+      <% } else { contracts.forEach(c => { %>
+      <tr style="cursor:pointer" onclick="window.location='/contracts/<%= c.id %>'">
+        <td><%= c.contract_number %></td>
+        <td><strong><%= c.title %></strong></td>
+        <% if (user.role !== 'customer') { %>
+          <td><%= c.customer_name || '-' %><br><small style="color:var(--text-muted)"><%= c.customer_company || '' %></small></td>
+        <% } %>
+        <td><span class="badge badge-contract-<%= c.status.toLowerCase().replace(/ /g, '-') %>"><%= c.status %></span></td>
+        <td>$<%= parseFloat(c.total_value || 0).toLocaleString('en-US', {minimumFractionDigits:2}) %></td>
+        <td style="font-size:13px;color:var(--text-secondary)"><%= c.start_date ? new Date(c.start_date).toLocaleDateString() : '-' %></td>
+        <td style="font-size:13px;color:var(--text-secondary)"><%= c.end_date ? new Date(c.end_date).toLocaleDateString() : '-' %></td>
+        <td>
+          <span style="color:<%= c.signed_by_admin ? 'var(--success)' : 'var(--text-muted)' %>">Admin <%- c.signed_by_admin ? '&#10003;' : '&#9711;' %></span>
+          <span style="color:<%= c.signed_by_customer ? 'var(--success)' : 'var(--text-muted)' %>;margin-left:8px">Client <%- c.signed_by_customer ? '&#10003;' : '&#9711;' %></span>
+        </td>
+      </tr>
+      <% }) } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('layout-foot') %>

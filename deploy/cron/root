@@ -1,0 +1,1 @@
+0 18 * * * /usr/bin/node /opt/agreements/scripts/notify-renewals.js >> /var/log/agreements-renewals.log 2>&1

@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Review Agreement — <%= quote.org_name || 'Agreements' %></title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Inter',sans-serif; background:#f4f4f5; color:#1e293b; min-height:100vh; }
+    .header { background:linear-gradient(135deg,#1e293b,#334155); padding:24px 0; text-align:center; }
+    .header img { height:40px; max-width:200px; margin-bottom:8px; }
+    .header h1 { color:#fff; font-size:20px; font-weight:700; }
+    .header .sub { color:#94a3b8; font-size:13px; margin-top:4px; }
+    .container { max-width:800px; margin:0 auto; padding:24px 16px; }
+    .card { background:#fff; border-radius:12px; padding:24px; margin-bottom:16px; box-shadow:0 1px 4px rgba(0,0,0,0.06); }
+    .badge { display:inline-block; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600; }
+    .badge-sent, .badge-ready { background:#d1f0d8; color:#1d8a3e; }
+    .badge-draft { background:#f1f5f9; color:#64748b; }
+    .badge-accepted { background:#d1fae5; color:#065f46; }
+    .badge-pending-revision { background:#fef3c7; color:#92400e; }
+    .quote-info { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:16px 0; }
+    .quote-info .field { }
+    .quote-info .label { font-size:12px; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; }
+    .quote-info .value { font-size:15px; font-weight:600; margin-top:2px; }
+    table { width:100%; border-collapse:collapse; }
+    thead { background:#f8fafc; }
+    th { padding:10px 12px; text-align:left; font-size:12px; color:#64748b; text-transform:uppercase; font-weight:600; }
+    td { padding:10px 12px; border-bottom:1px solid #f1f5f9; font-size:14px; }
+    .text-right { text-align:right; }
+    .total-row { border-top:2px solid #e2e8f0; }
+    .total-row td { font-size:18px; font-weight:700; padding-top:16px; }
+    .btn { display:inline-block; padding:12px 32px; border-radius:8px; font-size:15px; font-weight:600; cursor:pointer; border:none; text-decoration:none; }
+    .btn-primary { background:#2DB252; color:#fff; }
+    .btn-primary:hover { background:#1d8a3e; }
+    .btn-secondary { background:#f1f5f9; color:#334155; }
+    .btn-success { background:#059669; color:#fff; }
+    .btn-success:hover { background:#047857; }
+    .actions { display:flex; gap:12px; justify-content:center; margin-top:24px; }
+    .legal { font-size:12px; color:#64748b; white-space:pre-wrap; line-height:1.6; max-height:300px; overflow-y:auto; padding:16px; background:#f8fafc; border-radius:8px; }
+    .footer { text-align:center; padding:24px; color:#94a3b8; font-size:12px; }
+    .revision-item { padding:12px 0; border-bottom:1px solid #f1f5f9; }
+    .revision-item:last-child { border:none; }
+    .modal-overlay { display:none; position:fixed; top:0;left:0;right:0;bottom:0; background:rgba(0,0,0,0.5); z-index:100; align-items:center; justify-content:center; }
+    .modal-overlay.active { display:flex; }
+    .modal { background:#fff; border-radius:12px; padding:32px; max-width:480px; width:90%; }
+    .form-group { margin-bottom:16px; }
+    .form-group label { display:block; font-size:13px; font-weight:600; color:#334155; margin-bottom:6px; }
+    .form-control { width:100%; padding:10px 14px; border:1px solid #d1d5db; border-radius:8px; font-size:14px; font-family:inherit; }
+    textarea.form-control { min-height:80px; resize:vertical; }
+    .accepted-banner { background:#d1fae5; border:1px solid #6ee7b7; border-radius:12px; padding:20px; text-align:center; }
+    .accepted-banner h3 { color:#065f46; margin-bottom:4px; }
+    .accepted-banner p { color:#047857; font-size:14px; }
+    @media (max-width: 600px) {
+      .modal div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+      .modal { padding: 20px !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <% if (quote.org_logo) { %><img src="<%= quote.org_logo %>" alt="<%= quote.org_name %>"><% } %>
+    <h1><%= quote.org_name || 'Agreement' %></h1>
+    <div class="sub">Agreement Review</div>
+  </div>
+
+  <div class="container">
+    <% if (quote.status === 'Accepted' || (contract && contract.signed_by_customer)) { %>
+    <div class="accepted-banner">
+      <h3>Agreement Accepted</h3>
+      <p>This agreement has been accepted. A confirmation email with your signed contract PDF has been sent.</p>
+    </div>
+    <% } %>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+        <div>
+          <h2 style="font-size:20px;margin-bottom:4px;"><%= quote.title %></h2>
+          <span style="color:#64748b;font-size:14px;">Agreement #<%= quote.quote_number %></span>
+        </div>
+        <span class="badge badge-<%= quote.status.toLowerCase().replace(/ /g,'-').replace('ready-for-acceptance','ready') %>"><%= quote.status %></span>
+      </div>
+
+      <div class="quote-info">
+        <div class="field"><div class="label">Prepared For</div><div class="value"><%= quote.customer_name || quote.customer_email %></div></div>
+        <div class="field"><div class="label">Company</div><div class="value"><%= quote.customer_company || 'N/A' %></div></div>
+        <% if (quote.customer_address) { %><div class="field" style="grid-column:1/-1;"><div class="label">Address</div><div class="value"><%= quote.customer_address %></div></div><% } %>
+        <% if (quote.customer_phone) { %><div class="field"><div class="label">Phone</div><div class="value"><%= quote.customer_phone %></div></div><% } %>
+        <% if (quote.customer_email) { %><div class="field"><div class="label">Email</div><div class="value"><%= quote.customer_email %></div></div><% } %>
+        <div class="field"><div class="label">Prepared By</div><div class="value"><%= quote.creator_name || 'N/A' %></div></div>
+        <% if (quote.term_months) { %><div class="field"><div class="label">Term</div><div class="value"><%= quote.term_months == 0 ? 'Month-to-Month' : quote.term_months + ' Months' %></div></div><% } %>
+        <% if (quote.valid_until) { %><div class="field"><div class="label">Valid Until</div><div class="value"><%= new Date(quote.valid_until).toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'}) %></div></div><% } %>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size:16px;margin-bottom:12px;">Line Items</h3>
+      <table>
+        <thead><tr><th>Description</th><th class="text-right">Qty</th><th class="text-right">Price</th><th class="text-right">Total</th></tr></thead>
+        <tbody>
+          <% items.forEach(function(item) { %>
+          <tr>
+            <td>
+              <strong><%= item.description %></strong><% if (item.is_discount) { %> <span style="color:#059669;font-size:11px;">(Discount)</span><% } %>
+              <% if (item.notes && item.notes_visible_to_customer) { %>
+              <div style="font-size:12px;color:#64748b;white-space:pre-wrap;line-height:1.6;margin-top:6px;"><%= item.notes %></div>
+              <% } %>
+            </td>
+            <td class="text-right"><%= parseFloat(item.quantity) %></td>
+            <td class="text-right">$<%= parseFloat(item.unit_price).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) %></td>
+            <td class="text-right" style="font-weight:600;">$<%= parseFloat(item.total_price).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) %></td>
+          </tr>
+          <% }); %>
+          <tr>
+            <td colspan="3" class="text-right" style="color:#64748b;font-size:13px;">Subtotal</td>
+            <td class="text-right" style="color:#64748b;font-size:13px;">$<%= parseFloat(quote.total || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) %></td>
+          </tr>
+          <tr>
+            <td colspan="3" class="text-right" style="color:#64748b;font-size:13px;">Hawaii GET (4.712%)</td>
+            <td class="text-right" style="color:#64748b;font-size:13px;">$<%= (parseFloat(quote.total || 0) * 0.04712).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) %></td>
+          </tr>
+          <tr class="total-row">
+            <td colspan="3" class="text-right">Total</td>
+            <td class="text-right">$<%= (parseFloat(quote.total || 0) * 1.04712).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) %></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <% if (quote.legal_terms) { %>
+    <div class="card">
+      <h3 style="font-size:16px;margin-bottom:12px;">Terms & Conditions</h3>
+      <div class="legal"><%= quote.legal_terms %></div>
+    </div>
+    <% } %>
+
+    <% if (revisions.length > 0) { %>
+    <div class="card">
+      <h3 style="font-size:16px;margin-bottom:12px;">Revision History</h3>
+      <% revisions.forEach(function(r) { %>
+      <div class="revision-item">
+        <div style="font-size:13px;color:#64748b;"><strong><%= r.requester_name %></strong> — <%= new Date(r.created_at).toLocaleDateString() %> — <span class="badge badge-<%= r.status === 'Open' ? 'pending-revision' : 'accepted' %>"><%= r.status %></span></div>
+        <p style="margin-top:4px;font-size:14px;"><%= r.request_message %></p>
+        <% if (r.response_message) { %>
+        <div style="margin-top:8px;padding-left:16px;border-left:3px solid #2DB252;">
+          <div style="font-size:13px;color:#64748b;"><strong><%= r.responder_name %></strong> responded</div>
+          <p style="font-size:14px;"><%= r.response_message %></p>
+        </div>
+        <% } %>
+      </div>
+      <% }); %>
+    </div>
+    <% } %>
+
+    <% if (quote.status !== 'Accepted' && quote.status !== 'Draft' && !(contract && contract.signed_by_customer)) { %>
+    <div class="actions">
+      <button class="btn btn-success" id="openAcceptBtn">Accept Agreement</button>
+      <button class="btn btn-secondary" id="openRevisionBtn">Request Changes</button>
+    </div>
+    <% } %>
+  </div>
+
+  <div class="footer">
+    <p><%= quote.org_name || 'Hawaii Data AI' %> &middot; Powered by Agreements Platform</p>
+    <p>All agreements managed at agreements.hawaiidata.ai</p>
+  </div>
+
+  <!-- ESIGN Disclosure Modal (shown first) -->
+  <div class="modal-overlay" id="esignModal">
+    <div class="modal" style="max-width:520px;">
+      <h3 style="margin-bottom:4px;">Electronic Signature Disclosure</h3>
+      <p style="color:#64748b;font-size:13px;margin-bottom:16px;">Before proceeding, please review and acknowledge the following:</p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:16px;font-size:13px;color:#334155;line-height:1.7;">
+        <p style="margin:0 0 12px;font-weight:600;">Electronic Signature Consent (UETA & ESIGN Act)</p>
+        <p style="margin:0 0 8px;">By proceeding, you acknowledge and agree that:</p>
+        <ul style="margin:0 0 12px;padding-left:20px;">
+          <li>Your electronic signature has the same legal effect as a handwritten signature</li>
+          <li>You intend to sign this agreement electronically</li>
+          <li>This constitutes a legally binding agreement under the Uniform Electronic Transactions Act (UETA) and the federal Electronic Signatures in Global and National Commerce Act (ESIGN Act)</li>
+        </ul>
+        <p style="margin:0 0 12px;font-weight:600;">Consent to Electronic Communications</p>
+        <ul style="margin:0;padding-left:20px;">
+          <li>You agree to receive all contract-related documents, notices, amendments, and communications electronically via email</li>
+          <li>You may request paper copies by contacting us in writing</li>
+          <li>You may withdraw consent to electronic communications at any time by providing written notice, but withdrawal will not affect documents already provided electronically</li>
+          <li>You need a device with internet access, email, and a PDF reader to receive and view documents</li>
+        </ul>
+      </div>
+      <div style="background:#fffbeb;border:1px solid #fbbf24;border-radius:8px;padding:12px 14px;margin-bottom:16px;">
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:13px;color:#334155;font-weight:500;">
+          <input type="checkbox" id="esignConsent" style="margin-top:2px;width:18px;height:18px;accent-color:#059669;">
+          <span>I have read and understand this Electronic Signature Disclosure and consent to sign electronically and receive documents electronically.</span>
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button type="button" class="btn btn-secondary" id="cancelEsignBtn">Cancel</button>
+        <button type="button" class="btn btn-success" id="proceedToAcceptBtn" disabled>Proceed to Sign</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Accept Modal -->
+  <div class="modal-overlay" id="acceptModal">
+    <div class="modal" style="max-width:560px;">
+      <h3 style="margin-bottom:4px;">Accept Agreement</h3>
+      <p style="color:#64748b;font-size:13px;margin-bottom:20px;">Complete all fields below to accept this agreement. Your information will be recorded as part of the legally binding acceptance.</p>
+      <form id="acceptForm">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group" style="margin-bottom:12px;">
+            <label>Full Name <span style="color:#ef4444;">*</span></label>
+            <input type="text" class="form-control" name="signature_name" required placeholder="Your full legal name">
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label>Title / Position <span style="color:#ef4444;">*</span></label>
+            <input type="text" class="form-control" name="accepted_title" required placeholder="e.g. Owner, Manager">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group" style="margin-bottom:12px;">
+            <label>Company Name <span style="color:#ef4444;">*</span></label>
+            <input type="text" class="form-control" name="accepted_company" required placeholder="Your company name" value="<%= quote.customer_company || '' %>">
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label>Email Address <span style="color:#ef4444;">*</span></label>
+            <input type="email" class="form-control" name="accepted_email" required placeholder="user@example.com" value="<%= quote.customer_email || '' %>">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group" style="margin-bottom:12px;">
+            <label>Phone Number <span style="color:#ef4444;">*</span></label>
+            <input type="tel" class="form-control" name="accepted_phone" required placeholder="(808) 555-1234">
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label>Date</label>
+            <input type="text" class="form-control" disabled value="<%= new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) %>" style="background:#f1f5f9;color:#64748b;">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label>Business Address <span style="color:#ef4444;">*</span></label>
+          <input type="text" class="form-control" name="accepted_address" required placeholder="Full business address">
+        </div>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-bottom:12px;">
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:13px;color:#334155;font-weight:500;">
+            <input type="checkbox" name="terms_agreed" required style="margin-top:2px;width:18px;height:18px;accent-color:#059669;">
+            <span>I have read and agree to the Terms &amp; Conditions outlined in this agreement.</span>
+          </label>
+        </div>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-bottom:12px;">
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:13px;color:#334155;font-weight:500;">
+            <input type="checkbox" name="electronic_consent" required style="margin-top:2px;width:18px;height:18px;accent-color:#059669;">
+            <span>I consent to electronic delivery of all contract documents, notices, and communications.</span>
+          </label>
+        </div>
+        <input type="hidden" name="esign_disclosure_accepted" value="true">
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button type="button" class="btn btn-secondary" id="cancelAcceptBtn">Cancel</button>
+          <button type="submit" class="btn btn-success" style="padding:12px 40px;">Accept &amp; Sign Agreement</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Revision Modal -->
+  <div class="modal-overlay" id="revisionModal">
+    <div class="modal">
+      <h3 style="margin-bottom:16px;">Request Changes</h3>
+      <form id="revisionForm">
+        <div class="form-group">
+          <label>What changes would you like?</label>
+          <textarea class="form-control" name="request_message" required placeholder="Describe the changes you need..."></textarea>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button type="button" class="btn btn-secondary" id="cancelRevisionBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Submit Request</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- SMS Verification Modal -->
+  <div class="modal-overlay" id="verifyModal">
+    <div class="modal" style="max-width:420px;text-align:center;">
+      <div style="margin-bottom:16px;">
+        <div style="width:56px;height:56px;background:#d1f0d8;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:28px;">#</div>
+      </div>
+      <h3 style="margin-bottom:4px;">Check Your Phone</h3>
+      <p style="color:#64748b;font-size:14px;margin-bottom:20px;">We sent a 6-digit verification code by text message to <strong id="verifyPhoneDisplay"></strong></p>
+      <form id="verifyForm">
+        <div class="form-group" style="margin-bottom:16px;">
+          <input type="text" class="form-control" name="code" required placeholder="Enter 6-digit code"
+                 style="text-align:center;font-size:24px;letter-spacing:8px;font-weight:700;padding:14px;"
+                 maxlength="6" pattern="[0-9]{6}" inputmode="numeric" autocomplete="one-time-code">
+        </div>
+        <p style="color:#94a3b8;font-size:12px;margin-bottom:16px;">Code expires in 15 minutes.</p>
+        <div style="display:flex;gap:8px;justify-content:center;">
+          <button type="button" class="btn btn-secondary" id="cancelVerifyBtn">Cancel</button>
+          <button type="submit" class="btn btn-success" style="padding:12px 40px;" id="verifySubmitBtn">Verify &amp; Sign</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+  // ESIGN Disclosure flow: Accept btn -> ESIGN modal -> Accept modal -> Verify modal
+  var openAcceptBtn = document.getElementById('openAcceptBtn');
+  if (openAcceptBtn) openAcceptBtn.addEventListener('click', function() { document.getElementById('esignModal').classList.add('active'); });
+
+  // ESIGN modal controls
+  var esignConsent = document.getElementById('esignConsent');
+  var proceedBtn = document.getElementById('proceedToAcceptBtn');
+  if (esignConsent) esignConsent.addEventListener('change', function() { proceedBtn.disabled = !this.checked; });
+  var cancelEsignBtn = document.getElementById('cancelEsignBtn');
+  if (cancelEsignBtn) cancelEsignBtn.addEventListener('click', function() { document.getElementById('esignModal').classList.remove('active'); });
+  if (proceedBtn) proceedBtn.addEventListener('click', function() {
+    document.getElementById('esignModal').classList.remove('active');
+    document.getElementById('acceptModal').classList.add('active');
+  });
+  var openRevisionBtn = document.getElementById('openRevisionBtn');
+  if (openRevisionBtn) openRevisionBtn.addEventListener('click', function() { document.getElementById('revisionModal').classList.add('active'); });
+  var cancelAcceptBtn = document.getElementById('cancelAcceptBtn');
+  if (cancelAcceptBtn) cancelAcceptBtn.addEventListener('click', function() { document.getElementById('acceptModal').classList.remove('active'); });
+  var cancelVerifyBtn = document.getElementById('cancelVerifyBtn');
+  if (cancelVerifyBtn) cancelVerifyBtn.addEventListener('click', function() { document.getElementById('verifyModal').classList.remove('active'); });
+  var cancelRevisionBtn = document.getElementById('cancelRevisionBtn');
+  if (cancelRevisionBtn) cancelRevisionBtn.addEventListener('click', function() { document.getElementById('revisionModal').classList.remove('active'); });
+
+  // Step 1: Submit signer details -> sends verification text
+  document.getElementById('acceptForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    var form = this;
+    var name = form.signature_name.value;
+    var title = form.accepted_title.value;
+    var company = form.accepted_company.value;
+    var email = form.accepted_email.value;
+    var phone = form.accepted_phone.value;
+    var address = form.accepted_address.value;
+    var terms = form.terms_agreed ? form.terms_agreed.checked : false;
+    var eConsent = form.electronic_consent ? form.electronic_consent.checked : false;
+    if (!name || !title || !company || !email || !phone || !address) {
+      alert('Please fill in all required fields.');
+      return;
+    }
+    if (!terms) { alert('You must agree to the Terms & Conditions.'); return; }
+    if (!eConsent) { alert('You must consent to electronic communications.'); return; }
+    var btn = form.querySelector('[type=submit]');
+    btn.disabled = true; btn.textContent = 'Sending verification...';
+    try {
+      var res = await fetch('/review/<%= token %>/accept', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          signature_name: name, accepted_title: title, accepted_company: company,
+          accepted_email: email, accepted_phone: phone, accepted_address: address,
+          terms_agreed: terms, electronic_consent: eConsent, esign_disclosure_accepted: true
+        })
+      });
+      var data = await res.json();
+      if (data.success && data.step === 'verify_sms') {
+        // Show verification modal
+        document.getElementById('acceptModal').classList.remove('active');
+        document.getElementById('verifyPhoneDisplay').textContent = phone;
+        document.getElementById('verifyModal').classList.add('active');
+      } else {
+        alert(data.error || 'Failed to process');
+        btn.disabled = false; btn.textContent = 'Accept & Sign Agreement';
+      }
+    } catch(err) {
+      alert('Error: ' + err.message);
+      btn.disabled = false; btn.textContent = 'Accept & Sign Agreement';
+    }
+  });
+
+  // Step 2: Verify code -> finalize acceptance
+  document.getElementById('verifyForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    var code = this.code.value.trim();
+    if (!code || code.length !== 6) { alert('Please enter the 6-digit code.'); return; }
+    var btn = document.getElementById('verifySubmitBtn');
+    btn.disabled = true; btn.textContent = 'Verifying...';
+    try {
+      var res = await fetch('/review/<%= token %>/verify', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ code: code })
+      });
+      var data = await res.json();
+      if (data.success) {
+        location.reload();
+      } else {
+        alert(data.error || 'Verification failed');
+        btn.disabled = false; btn.textContent = 'Verify & Sign';
+      }
+    } catch(err) {
+      alert('Error: ' + err.message);
+      btn.disabled = false; btn.textContent = 'Verify & Sign';
+    }
+  });
+
+  document.getElementById('revisionForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    var msg = this.request_message.value;
+    if (!msg) return;
+    var btn = this.querySelector('[type=submit]');
+    btn.disabled = true;
+    try {
+      var res = await fetch('/review/<%= token %>/revision', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ request_message: msg })
+      });
+      var data = await res.json();
+      if (data.success) { location.reload(); }
+      else { alert(data.error || 'Failed'); btn.disabled = false; }
+    } catch(err) { alert('Error: ' + err.message); btn.disabled = false; }
+  });
+
+  document.querySelectorAll('.modal-overlay').forEach(function(m) {
+    m.addEventListener('click', function(e) { if (e.target === m) m.classList.remove('active'); });
+  });
+  </script>
+</body>
+</html>

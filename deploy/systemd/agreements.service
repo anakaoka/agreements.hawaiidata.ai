@@ -1,0 +1,16 @@
+[Unit]
+Description=Agreements Platform
+After=network.target postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/agreements
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/agreements/.env
+
+[Install]
+WantedBy=multi-user.target

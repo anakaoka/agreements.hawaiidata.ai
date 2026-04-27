@@ -1,0 +1,297 @@
+<%- include('layout-head', { pageTitle: 'Quote #' + quote.quote_number, activePage: 'quotes' }) %>
+
+<div class="quote-header">
+  <div>
+    <h2><%= quote.title %></h2>
+    <div class="quote-meta">
+      <span class="meta-item">Quote #<strong><%= quote.quote_number %></strong></span>
+      <span class="meta-item">Status: <span class="badge badge-<%= quote.status.toLowerCase().replace(/ /g,'-').replace('ready-for-acceptance','ready') %>"><%= quote.status %></span></span>
+      <span class="meta-item">Customer: <strong><%= quote.customer_name || 'Unassigned' %></strong></span>
+      <span class="meta-item">Created by: <strong><%= quote.creator_name %></strong></span>
+      <% if (quote.valid_until) { %><span class="meta-item">Valid until: <strong><%= new Date(quote.valid_until).toLocaleDateString() %></strong></span><% } %>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <% if (user.role !== 'customer') { %>
+      <button class="btn btn-sm btn-secondary" onclick="openModal('addItemModal')">+ Add Item</button>
+      <% if (user.role === 'domain_admin') { %>
+        <button class="btn btn-sm btn-secondary" onclick="openModal('overrideModal')">Override Total</button>
+        <select onchange="updateStatus(this.value)" class="form-control" style="width:auto;padding:6px 12px;font-size:12px">
+          <option value="">Change Status...</option>
+          <option value="Draft">Draft</option>
+          <option value="Sent">Sent</option>
+          <option value="Ready for Acceptance">Ready for Acceptance</option>
+        </select>
+      <% } %>
+      <button class="btn btn-sm btn-primary" onclick="sendAgreement()" id="sendBtn" style="background:#059669;">Send Agreement</button>
+    <% } else { %>
+      <button class="btn btn-sm btn-secondary" onclick="openModal('revisionModal')">Request Revision</button>
+    <% } %>
+  </div>
+</div>
+
+<!-- Line Items -->
+<div class="section-title">Line Items</div>
+<div class="table-container line-items-table">
+  <table>
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th>Qty</th>
+        <th>Unit Price</th>
+        <th>Total</th>
+        <th>Status</th>
+        <% if (user.role !== 'customer') { %><th>Actions</th><% } %>
+      </tr>
+    </thead>
+    <tbody id="lineItemsBody">
+      <% if (items.length === 0) { %>
+        <tr><td colspan="6"><div class="empty-state"><p>No line items yet</p></div></td></tr>
+      <% } else { items.forEach(item => { %>
+        <tr class="<%= item.is_locked ? 'locked' : '' %>" id="item-<%= item.id %>">
+          <td>
+            <strong><%= item.description %></strong>
+            <% if (item.is_locked) { %><span class="badge badge-locked" style="margin-left:8px">Locked</span><% } %>
+            <% if (item.is_non_negotiable) { %><span class="badge badge-locked" style="margin-left:4px">Non-negotiable</span><% } %>
+            <% if (item.is_informational) { %><span class="badge badge-draft" style="margin-left:4px">Info Only</span><% } %>
+            <% if (item.notes && (item.notes_visible_to_customer || user.role !== 'customer')) { %>
+              <br><small style="color:var(--text-muted)"><%= item.notes %></small>
+            <% } %>
+          </td>
+          <td><%= parseFloat(item.quantity) %></td>
+          <td>$<%= parseFloat(item.unit_price).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) %></td>
+          <td class="<%= item.total_override ? 'override' : '' %>">
+            $<%= parseFloat(item.total_override || item.total_price).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) %>
+            <% if (item.total_override) { %><br><small style="color:var(--text-muted)">was $<%= parseFloat(item.total_price).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) %></small><% } %>
+          </td>
+          <td><span class="badge badge-<%= item.status.toLowerCase().replace(/ /g,'-') %>"><%= item.status %></span></td>
+          <% if (user.role !== 'customer') { %>
+          <td>
+            <button class="btn btn-sm btn-secondary btn-icon" onclick="editItem('<%= item.id %>')" title="Edit">&#9998;</button>
+            <% if (user.role === 'domain_admin') { %>
+              <button class="btn btn-sm btn-secondary btn-icon" onclick="toggleLock('<%= item.id %>', <%= !item.is_locked %>)" title="<%= item.is_locked ? 'Unlock' : 'Lock' %>"><%- item.is_locked ? '&#128275;' : '&#128274;' %></button>
+              <button class="btn btn-sm btn-danger btn-icon" onclick="deleteItem('<%= item.id %>')" title="Delete">&#128465;</button>
+            <% } %>
+          </td>
+          <% } %>
+        </tr>
+      <% }) } %>
+    </tbody>
+  </table>
+  <div class="quote-total">
+    <span class="total-label">Subtotal: $<%= parseFloat(quote.subtotal || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) %></span>
+    <% if (quote.total_override) { %>
+      <span style="color:var(--warning);font-size:13px">(Override)</span>
+    <% } %>
+    <span class="total-value">Total: $<%= parseFloat(quote.total || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) %></span>
+  </div>
+</div>
+
+<% if (quote.legal_terms) { %>
+<div style="margin-top:32px">
+  <div class="section-title">Legal Terms</div>
+  <div class="card"><%= quote.legal_terms %></div>
+</div>
+<% } %>
+
+<!-- Revisions -->
+<% if (revisions.length > 0) { %>
+<div style="margin-top:32px">
+  <div class="section-title">Revision Requests (<%= revisions.length %>)</div>
+  <div class="card timeline">
+    <% revisions.forEach(r => { %>
+    <div class="timeline-item">
+      <div class="timeline-meta"><strong><%= r.requester_name %></strong> &mdash; <%= new Date(r.created_at).toLocaleString() %> &mdash; <span class="badge badge-<%= r.status.toLowerCase() === 'open' ? 'pending' : 'accepted' %>"><%= r.status %></span></div>
+      <p><%= r.request_message %></p>
+      <% if (r.response_message) { %>
+        <div style="margin-top:8px;padding-left:16px;border-left:2px solid var(--primary)">
+          <div class="timeline-meta"><strong><%= r.responder_name %></strong> responded</div>
+          <p><%= r.response_message %></p>
+        </div>
+      <% } else if (user.role !== 'customer') { %>
+        <form onsubmit="respondRevision(event, '<%= r.id %>')" style="margin-top:8px;display:flex;gap:8px">
+          <input type="text" class="form-control" name="response" placeholder="Respond..." required style="flex:1">
+          <button class="btn btn-sm btn-primary" type="submit">Reply</button>
+        </form>
+      <% } %>
+    </div>
+    <% }) %>
+  </div>
+</div>
+<% } %>
+
+<!-- Audit Log -->
+<% if (user.role !== 'customer' && audit.length > 0) { %>
+<div style="margin-top:32px">
+  <div class="section-title">Audit History</div>
+  <div class="card">
+    <% audit.forEach(a => { %>
+    <div class="audit-entry">
+      <span class="audit-action"><%= a.action_type %></span> on <strong><%= a.entity_type %></strong> by <%= a.user_name || 'System' %> (<%= a.user_role %>)
+      <span class="audit-time"><%= new Date(a.created_at).toLocaleString() %></span>
+    </div>
+    <% }) %>
+  </div>
+</div>
+<% } %>
+
+<!-- Modals -->
+<div class="modal-overlay" id="addItemModal">
+  <div class="modal">
+    <h3>Add Line Item</h3>
+    <form onsubmit="addItem(event)">
+      <div class="form-group"><label>Description</label><input name="description" class="form-control" required></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="form-group"><label>Quantity</label><input name="quantity" type="number" step="0.01" value="1" class="form-control"></div>
+        <div class="form-group"><label>Unit Price</label><input name="unit_price" type="number" step="0.01" class="form-control" required></div>
+      </div>
+      <div class="form-group"><label>Notes</label><textarea name="notes" class="form-control"></textarea></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('addItemModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add Item</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="overrideModal">
+  <div class="modal">
+    <h3>Override Quote Total</h3>
+    <form onsubmit="overrideTotal(event)">
+      <div class="form-group"><label>New Total</label><input name="total_override" type="number" step="0.01" class="form-control" required></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('overrideModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Confirm Override</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="revisionModal">
+  <div class="modal">
+    <h3>Request Revision</h3>
+    <form onsubmit="requestRevision(event)">
+      <div class="form-group"><label>What changes would you like?</label><textarea name="request_message" class="form-control" required></textarea></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('revisionModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Submit Request</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const QUOTE_ID = '<%= quote.id %>';
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+async function addItem(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const data = Object.fromEntries(fd);
+  const res = await fetch('/api/quotes/' + QUOTE_ID + '/items', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)
+  });
+  if (res.ok) location.reload();
+  else alert('Failed to add item');
+}
+
+async function deleteItem(id) {
+  if (!confirm('Delete this line item?')) return;
+  const res = await fetch('/api/quotes/' + QUOTE_ID + '/items/' + id, { method: 'DELETE' });
+  if (res.ok) location.reload();
+  else alert('Failed to delete');
+}
+
+async function toggleLock(id, lock) {
+  await fetch('/api/quotes/' + QUOTE_ID + '/items/' + id, {
+    method: 'PUT', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ is_locked: lock })
+  });
+  location.reload();
+}
+
+function editItem(id) {
+  const desc = prompt('New description (leave blank to skip):');
+  const price = prompt('New unit price (leave blank to skip):');
+  const qty = prompt('New quantity (leave blank to skip):');
+  const body = {};
+  if (desc) body.description = desc;
+  if (price) body.unit_price = parseFloat(price);
+  if (qty) body.quantity = parseFloat(qty);
+  if (Object.keys(body).length === 0) return;
+  fetch('/api/quotes/' + QUOTE_ID + '/items/' + id, {
+    method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+  }).then(() => location.reload());
+}
+
+async function overrideTotal(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  if (!confirm('Override total to $' + fd.get('total_override') + '?')) return;
+  const res = await fetch('/api/quotes/' + QUOTE_ID + '/override', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ total_override: parseFloat(fd.get('total_override')) })
+  });
+  if (res.ok) location.reload();
+  else alert('Failed to override');
+}
+
+async function updateStatus(status) {
+  if (!status) return;
+  const res = await fetch('/api/quotes/' + QUOTE_ID + '/status', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ status })
+  });
+  if (res.ok) location.reload();
+  else alert('Failed to update status');
+}
+
+async function requestRevision(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const res = await fetch('/api/quotes/' + QUOTE_ID + '/revisions', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ request_message: fd.get('request_message') })
+  });
+  if (res.ok) location.reload();
+  else alert('Failed to submit');
+}
+
+async function respondRevision(e, id) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const res = await fetch('/api/revisions/' + id + '/respond', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ response_message: fd.get('response'), status: 'Resolved' })
+  });
+  if (res.ok) location.reload();
+  else alert('Failed to respond');
+}
+
+
+async function sendAgreement() {
+  var btn = document.getElementById('sendBtn');
+  if (!confirm('Send this agreement to the customer via email?')) return;
+  btn.disabled = true; btn.textContent = 'Sending...';
+  try {
+    var res = await fetch('/api/quotes/' + QUOTE_ID + '/send', { method: 'POST', headers: {'Content-Type':'application/json'} });
+    var data = await res.json();
+    if (data.success) {
+      alert('Agreement sent! Review URL: ' + data.reviewUrl);
+      location.reload();
+    } else {
+      alert('Failed: ' + (data.error || 'Unknown error'));
+      btn.disabled = false; btn.textContent = 'Send Agreement';
+    }
+  } catch(err) {
+    alert('Error: ' + err.message);
+    btn.disabled = false; btn.textContent = 'Send Agreement';
+  }
+}
+
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); });
+});
+</script>
+
+<%- include('layout-foot') %>

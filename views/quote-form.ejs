@@ -1,0 +1,352 @@
+<%- include('layout-head', { pageTitle: 'New Quote', activePage: 'new-quote' }) %>
+
+<style>
+  .quote-page { max-width: 900px; margin: 0 auto; }
+  .org-selector { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+  .org-selector label { font-weight: 600; white-space: nowrap; }
+  .org-selector select { flex: 1; max-width: 300px; }
+
+  .section-title { font-size: 1rem; font-weight: 600; color: var(--primary); margin: 24px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  .customer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .customer-grid .full-width { grid-column: 1 / -1; }
+
+  .line-items-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .line-items-table th { text-align: left; padding: 8px 10px; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+  .line-items-table td { padding: 6px 6px; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: middle; }
+  .line-items-table input, .line-items-table select { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; color: var(--text-primary); font-size: 0.85rem; }
+  .line-items-table input { width: 100%; }
+  .line-items-table input[type="number"] { width: 80px; text-align: right; }
+  .line-items-table .row-total { text-align: right; font-weight: 600; min-width: 80px; color: var(--primary); white-space: nowrap; }
+  .line-items-table .desc-input { min-width: 180px; }
+  .line-items-table .discount-row { opacity: 0.7; }
+  .line-items-table .discount-row .row-total { color: #ff5555; }
+  .btn-remove-row { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; font-size: 1.1rem; }
+  .btn-remove-row:hover { color: #ff5555; background: rgba(255,85,85,0.1); }
+  .btn-add-row { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; margin-top: 8px; background: rgba(0,212,170,0.1); border: 1px dashed var(--primary); border-radius: 6px; color: var(--primary); cursor: pointer; font-size: 0.85rem; }
+  .btn-add-row:hover { background: rgba(0,212,170,0.2); }
+  .add-item-bar { display: flex; gap: 8px; margin-top: 8px; align-items: center; flex-wrap: wrap; }
+  .item-picker { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: var(--text-primary); font-size: 0.85rem; min-width: 200px; }
+
+  .totals-section { margin-top: 16px; padding: 12px 0; border-top: 2px solid var(--border); }
+  .totals-row { display: flex; justify-content: flex-end; gap: 32px; margin-bottom: 8px; }
+  .totals-row:last-child { margin-bottom: 0; }
+  .totals-row .total-group { text-align: right; min-width: 120px; }
+  .totals-row .total-label { color: var(--text-muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+  .totals-row .total-value { font-size: 1.1rem; font-weight: 700; color: var(--primary); }
+  .totals-row .total-value.discount { color: #ff5555; }
+
+  .legal-terms-box { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 16px; max-height: 200px; overflow-y: auto; font-size: 0.78rem; line-height: 1.6; color: var(--text-muted); white-space: pre-wrap; }
+
+  .term-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  .form-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); }
+
+  .type-select { width: 100px; }
+  .qty-input { width: 65px; }
+  .price-input { width: 85px; }
+</style>
+
+<div class="quote-page">
+  <div class="card">
+    <form id="quoteForm" method="POST" action="/quotes">
+      <!-- Org Selector -->
+      <div class="org-selector">
+        <label>Creating quote for:</label>
+        <select name="org_id" id="orgSelect" class="form-control" required>
+          <% userOrgs.forEach(o => { %>
+            <option value="<%= o.id %>" data-logo="<%= o.logo_url || '' %>" data-name="<%= o.name %>"
+              data-terms="<%= (o.legal_terms || '').replace(/"/g, '&quot;') %>"
+              data-term-months="<%= o.default_term_months || 12 %>"
+              <%= o.id === activeOrgId ? 'selected' : '' %>>
+              <%= o.name %>
+            </option>
+          <% }) %>
+        </select>
+        <img id="orgLogo" src="" alt="" style="height:36px; max-width:160px; object-fit:contain; display:none;">
+      </div>
+
+      <!-- Quote Title -->
+      <div class="form-group">
+        <label>Quote Title</label>
+        <input name="title" class="form-control" placeholder="e.g. VoIP System - 25 Phones" required>
+      </div>
+
+      <!-- Customer Info Section -->
+      <div class="section-title">Customer Information</div>
+      <div class="customer-grid">
+        <div class="form-group">
+          <label>Contact Name</label>
+          <input name="customer_name" class="form-control" placeholder="Full name" required>
+        </div>
+        <div class="form-group">
+          <label>Company</label>
+          <input name="customer_company" class="form-control" placeholder="Company name">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input name="customer_email" type="email" class="form-control" placeholder="customer@example.com">
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input name="customer_phone" class="form-control" placeholder="(808) 555-1234">
+        </div>
+        <div class="form-group full-width">
+          <label>Address</label>
+          <input name="customer_address" class="form-control" placeholder="Street address, City, State ZIP">
+        </div>
+      </div>
+
+      <!-- Contract Term -->
+      <div class="section-title">Contract Term</div>
+      <div class="term-row">
+        <div class="form-group">
+          <label>Term Length</label>
+          <select name="term_months" id="termMonths" class="form-control">
+            <option value="0">Month-to-Month</option>
+            <option value="12">12 Months (1 Year)</option>
+            <option value="24">24 Months (2 Years)</option>
+            <option value="36">36 Months (3 Years)</option>
+            <option value="48">48 Months (4 Years)</option>
+            <option value="60">60 Months (5 Years)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Valid Until</label>
+          <input name="valid_until" type="date" class="form-control">
+        </div>
+      </div>
+
+      <!-- Line Items Section -->
+      <div class="section-title">Line Items</div>
+      <table class="line-items-table" id="lineItemsTable">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Cycle</th>
+            <th>Qty</th>
+            <th>Unit Price</th>
+            <th>Total</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="lineItemsBody"></tbody>
+      </table>
+
+      <div class="add-item-bar">
+        <select id="itemPicker" class="item-picker">
+          <option value="">+ Add predefined item...</option>
+        </select>
+        <button type="button" class="btn-add-row" id="addCustomBtn">+ Custom Item</button>
+      </div>
+
+      <div class="totals-section">
+        <div class="totals-row">
+          <div class="total-group">
+            <div class="total-label">Monthly Recurring</div>
+            <div class="total-value" id="monthlyTotal">$0.00</div>
+          </div>
+        </div>
+        <div class="totals-row">
+          <div class="total-group">
+            <div class="total-label">One-Time / Setup</div>
+            <div class="total-value" id="onetimeTotal">$0.00</div>
+          </div>
+          <div class="total-group">
+            <div class="total-label">Discounts</div>
+            <div class="total-value discount" id="discountTotal">$0.00</div>
+          </div>
+        </div>
+      </div>
+      <!-- Internal Notes -->
+      <div class="form-group" style="margin-top:16px;">
+        <label>Internal Notes (not visible to customer)</label>
+        <textarea name="notes" class="form-control" rows="2" placeholder="Optional internal notes..." style="min-height:60px;"></textarea>
+      </div>
+
+      <!-- Legal Terms (read-only) -->
+      <div class="section-title">Terms & Conditions</div>
+      <div class="legal-terms-box" id="legalTermsBox">
+        Select an organization above to load the applicable terms and conditions.
+      </div>
+      <input type="hidden" name="legal_terms" id="legalTermsInput">
+
+      <!-- Actions -->
+      <div class="form-actions">
+        <a href="/dashboard" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary" style="padding:10px 32px;">Create Quote</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// Pricing rules from database
+const allPricingRules = <%- JSON.stringify(pricingRules || []).replace(/\x3c/g, "\\u003c") %>;
+
+const orgSelect = document.getElementById('orgSelect');
+const orgLogo = document.getElementById('orgLogo');
+const termMonths = document.getElementById('termMonths');
+const legalTermsBox = document.getElementById('legalTermsBox');
+const legalTermsInput = document.getElementById('legalTermsInput');
+const lineItemsBody = document.getElementById('lineItemsBody');
+const itemPicker = document.getElementById('itemPicker');
+let rowCounter = 0;
+
+function fmt(n) { return n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function getOrgId() { return orgSelect.value; }
+function getTermMonths() { return parseInt(termMonths.value) || 0; }
+
+function getAvailableItems() {
+  const orgId = getOrgId();
+  const term = getTermMonths();
+  // Get unique categories for this org+term
+  return allPricingRules.filter(r => r.org_id === orgId && r.term_months === term);
+}
+
+function updateItemPicker() {
+  const items = getAvailableItems();
+  itemPicker.innerHTML = '<option value="">+ Add predefined item...</option>';
+  const seen = new Set();
+  items.forEach(item => {
+    if (seen.has(item.category)) return;
+    seen.add(item.category);
+    const opt = document.createElement('option');
+    opt.value = item.category;
+    opt.textContent = item.description + ' ($' + fmt(parseFloat(item.unit_price)) + '/' + (item.billing_cycle === 'monthly' ? 'mo' : 'once') + ')';
+    itemPicker.appendChild(opt);
+  });
+  if (items.length === 0) {
+    itemPicker.style.display = 'none';
+  } else {
+    itemPicker.style.display = '';
+  }
+}
+
+function addRow(desc, cycle, qty, price, category, isDiscount, detailText) {
+  rowCounter++;
+  const row = document.createElement('tr');
+  row.className = 'line-item-row' + (isDiscount ? ' discount-row' : '');
+  row.dataset.category = category || '';
+  row.dataset.isDiscount = isDiscount ? '1' : '0';
+  const cycleVal = cycle || 'one_time';
+  const total = (parseFloat(qty) || 1) * (parseFloat(price) || 0);
+  row.innerHTML = `
+    <td><input name="items_desc[]" class="desc-input" value="${(desc||'').replace(/"/g,'&quot;')}" placeholder="Description" required></td>
+    <td><select name="items_cycle[]" class="type-select">
+      <option value="monthly" ${cycleVal==='monthly'?'selected':''}>Monthly</option>
+      <option value="one_time" ${cycleVal==='one_time'?'selected':''}>One-Time</option>
+    </select></td>
+    <td><input name="items_qty[]" class="qty-input" type="number" min="0" step="any" value="${qty||1}"></td>
+    <td><input name="items_price[]" class="price-input" type="number" step="0.01" value="${price||''}" placeholder="0.00"></td>
+    <td class="row-total">${total >= 0 ? '$' : '-$'}${Math.abs(total).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+    <td><button type="button" class="btn-remove-row" title="Remove">&times;</button></td>
+    <input type="hidden" name="items_category[]" value="${category||'custom'}">
+    <input type="hidden" name="items_is_discount[]" value="${isDiscount?'1':'0'}">
+    <input type="hidden" name="items_detail[]" value="${(detailText||'').replace(/"/g,'&quot;')}">`;
+  lineItemsBody.appendChild(row);
+  if (detailText) {
+    const detailRow = document.createElement('tr');
+    detailRow.className = 'detail-text-row';
+    detailRow.innerHTML = '<td colspan="6" style="padding:4px 10px 12px;font-size:0.75rem;color:var(--text-muted);white-space:pre-wrap;line-height:1.5;border-bottom:1px solid var(--border);">' + detailText.replace(/</g,'&lt;') + '</td>';
+    lineItemsBody.appendChild(detailRow);
+  }
+  bindRowEvents(row);
+  calcTotals();
+  return row;
+}
+
+function addPredefinedItem(category) {
+  const orgId = getOrgId();
+  const term = getTermMonths();
+  const rule = allPricingRules.find(r => r.org_id === orgId && r.term_months === term && r.category === category);
+  if (!rule) return;
+  addRow(rule.description, rule.billing_cycle, 1, rule.unit_price, rule.category, false, rule.detail_text || '');
+  // Auto-add discount line if this category has discount_at_term matching current term
+  if (rule.discount_at_term && rule.discount_at_term === term) {
+    addRow(term + '-Month Term ' + rule.description + ' Discount', 'one_time', 1, -rule.unit_price, rule.category + '_discount', true);
+  }
+}
+
+function calcTotals() {
+  let monthly = 0, onetime = 0, discounts = 0;
+  document.querySelectorAll('.line-item-row').forEach(row => {
+    const qty = parseFloat(row.querySelector('[name="items_qty[]"]').value) || 0;
+    const price = parseFloat(row.querySelector('[name="items_price[]"]').value) || 0;
+    const cycle = row.querySelector('[name="items_cycle[]"]').value;
+    const total = qty * price;
+    const totalCell = row.querySelector('.row-total');
+    if (total >= 0) {
+      totalCell.textContent = '$' + fmt(total);
+      totalCell.style.color = '';
+    } else {
+      totalCell.textContent = '-$' + fmt(Math.abs(total));
+      totalCell.style.color = '#ff5555';
+    }
+    if (total < 0) discounts += total;
+    else if (cycle === 'monthly') monthly += total;
+    else onetime += total;
+  });
+  document.getElementById('monthlyTotal').textContent = '$' + fmt(monthly);
+  document.getElementById('onetimeTotal').textContent = '$' + fmt(onetime);
+  document.getElementById('discountTotal').textContent = discounts < 0 ? '-$' + fmt(Math.abs(discounts)) : '$0.00';
+}
+
+function bindRowEvents(row) {
+  row.querySelectorAll('input, select').forEach(el => el.addEventListener('input', calcTotals));
+  row.querySelector('.btn-remove-row').addEventListener('click', () => { row.remove(); calcTotals(); });
+}
+
+function updateOrg() {
+  const opt = orgSelect.selectedOptions[0];
+  const logo = opt.dataset.logo;
+  const terms = opt.dataset.terms;
+  const defTerm = opt.dataset.termMonths;
+  if (logo) { orgLogo.src = logo; orgLogo.style.display = 'block'; }
+  else { orgLogo.style.display = 'none'; }
+  legalTermsBox.textContent = terms || 'No terms configured for this organization.';
+  legalTermsInput.value = terms || '';
+  if (defTerm) termMonths.value = defTerm;
+  updateItemPicker();
+}
+
+function onTermChange() {
+  // When term changes, update prices for existing predefined items
+  const orgId = getOrgId();
+  const term = getTermMonths();
+  // Remove old discount rows
+  document.querySelectorAll('.line-item-row').forEach(row => {
+    if (row.dataset.isDiscount === '1') row.remove();
+  });
+  // Update prices for predefined items and re-add discounts
+  document.querySelectorAll('.line-item-row').forEach(row => {
+    const cat = row.dataset.category;
+    if (!cat || cat === 'custom') return;
+    const rule = allPricingRules.find(r => r.org_id === orgId && r.term_months === term && r.category === cat);
+    if (rule) {
+      row.querySelector('[name="items_price[]"]').value = rule.unit_price;
+      // Add discount if applicable
+      if (rule.discount_at_term && rule.discount_at_term === term) {
+        const qty = parseFloat(row.querySelector('[name="items_qty[]"]').value) || 1;
+        addRow(term + '-Month Term ' + rule.description + ' Discount', 'one_time', qty, -rule.unit_price, cat + '_discount', true);
+      }
+    }
+  });
+  updateItemPicker();
+  calcTotals();
+}
+
+// Event listeners
+orgSelect.addEventListener('change', () => { updateOrg(); onTermChange(); });
+termMonths.addEventListener('change', onTermChange);
+document.getElementById('addCustomBtn').addEventListener('click', () => addRow('', 'one_time', 1, '', 'custom', false));
+itemPicker.addEventListener('change', function() {
+  if (this.value) { addPredefinedItem(this.value); this.value = ''; }
+});
+
+// Init
+updateOrg();
+// Start with one empty custom row if no pricing rules
+if (getAvailableItems().length === 0) addRow('', 'one_time', 1, '', 'custom', false);
+</script>
+
+<%- include('layout-foot') %>

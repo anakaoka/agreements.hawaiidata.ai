@@ -1,0 +1,154 @@
+<%- include('layout-head', { pageTitle: 'Contract #' + contract.contract_number, activePage: 'contracts' }) %>
+
+<div class="quote-header">
+  <div>
+    <h2><%= contract.title %></h2>
+    <div class="quote-meta">
+      <span class="meta-item">Contract #<strong><%= contract.contract_number %></strong></span>
+      <span class="meta-item">Status: <span class="badge badge-contract-<%= contract.status.toLowerCase().replace(/ /g,'-') %>"><%= contract.status %></span></span>
+      <span class="meta-item">Customer: <strong><%= contract.customer_name || 'Unassigned' %></strong></span>
+      <% if (contract.quote_number) { %><span class="meta-item">Quote: <strong>#<%= contract.quote_number %></strong></span><% } %>
+      <span class="meta-item">Value: <strong style="color:var(--primary)">$<%= parseFloat(contract.total_value || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) %></strong></span>
+    </div>
+    <div class="quote-meta" style="margin-top:4px">
+      <% if (contract.billing_started_at) { %>
+        <span class="meta-item">Billing Started: <strong><%= new Date(contract.billing_started_at).toLocaleDateString() %></strong></span>
+        <% if (contract.start_date) { %><span class="meta-item">Term Start: <strong><%= new Date(contract.start_date).toLocaleDateString() %></strong></span><% } %>
+        <% if (contract.end_date) { %><span class="meta-item">Term End: <strong><%= new Date(contract.end_date).toLocaleDateString() %></strong></span><% } %>
+      <% } else { %>
+        <span class="meta-item"><span class="badge" style="background:#fef3c7;color:#92400e;">Billing Not Started</span></span>
+      <% } %>
+      <% if (contract.auto_renew) { %><span class="meta-item"><span class="badge badge-active">Auto-Renew</span></span><% } %>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <a href="/contracts/<%= contract.id %>/download" class="btn btn-sm btn-secondary" style="gap:6px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download PDF
+    </a>
+    <% if (user.role !== 'customer' && contract.status === 'Draft') { %>
+      <button class="btn btn-sm btn-primary" onclick="sendForSignature()">Send for Signature</button>
+    <% } %>
+    <% if (user.role === 'domain_admin' && !contract.billing_started_at && contract.status === 'Active') { %>
+      <button class="btn btn-sm btn-primary" onclick="startBilling()" style="background:#059669;">Start Billing</button>
+    <% } %>
+    <% if (user.role === 'domain_admin') { %>
+      <select onchange="updateContractStatus(this.value)" class="form-control" style="width:auto;padding:6px 12px;font-size:12px">
+        <option value="">Change Status...</option>
+        <option value="Draft">Draft</option>
+        <option value="Pending Signature">Pending Signature</option>
+        <option value="Active">Active</option>
+        <option value="Expired">Expired</option>
+        <option value="Terminated">Terminated</option>
+      </select>
+    <% } %>
+  </div>
+</div>
+
+<!-- Signatures -->
+<div class="section-title">Signatures</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:32px">
+  <div class="signature-box <%= contract.signed_by_admin ? 'signed' : '' %>">
+    <% if (contract.signed_by_admin) { %>
+      <div style="color:var(--success);font-weight:700;font-size:18px">&#10003; Signed by Admin</div>
+      <div style="font-style:italic;margin-top:8px;color:var(--text-secondary)"><%= contract.admin_signature_name %></div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px"><%= new Date(contract.admin_signed_at).toLocaleString() %></div>
+    <% } else if (user.role !== 'customer') { %>
+      <div>Admin Signature</div>
+      <button class="btn btn-sm btn-primary" style="margin-top:12px" onclick="signContract()">Sign as Admin</button>
+    <% } else { %>
+      <div>Awaiting Admin Signature</div>
+    <% } %>
+  </div>
+  <div class="signature-box <%= contract.signed_by_customer ? 'signed' : '' %>">
+    <% if (contract.signed_by_customer) { %>
+      <div style="color:var(--success);font-weight:700;font-size:18px">&#10003; Signed by Customer</div>
+      <div style="font-style:italic;margin-top:8px;color:var(--text-secondary)"><%= contract.customer_signature_name %></div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px"><%= new Date(contract.customer_signed_at).toLocaleString() %></div>
+    <% } else if (user.role === 'customer' && contract.status === 'Pending Signature') { %>
+      <div>Customer Signature</div>
+      <button class="btn btn-sm btn-primary" style="margin-top:12px" onclick="signContract()">Sign Contract</button>
+    <% } else { %>
+      <div>Awaiting Customer Signature</div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Contract Body -->
+<% if (contract.contract_body) { %>
+<div class="section-title">Contract Body</div>
+<div class="card" style="margin-bottom:32px;white-space:pre-wrap;line-height:1.8"><%= contract.contract_body %></div>
+<% } %>
+
+<% if (contract.legal_terms) { %>
+<div class="section-title">Legal Terms</div>
+<div class="card" style="margin-bottom:32px;white-space:pre-wrap;line-height:1.8"><%= contract.legal_terms %></div>
+<% } %>
+
+<% if (contract.renewal_terms) { %>
+<div class="section-title">Renewal Terms</div>
+<div class="card" style="margin-bottom:32px"><%= contract.renewal_terms %></div>
+<% } %>
+
+<!-- Version History -->
+<% if (versions.length > 0 && user.role !== 'customer') { %>
+<div class="section-title">Version History (<%= versions.length %>)</div>
+<div class="card timeline" style="margin-bottom:32px">
+  <% versions.forEach(v => { %>
+  <div class="timeline-item">
+    <div class="timeline-meta">v<%= v.version_number %> &mdash; <strong><%= v.changed_by_name %></strong> &mdash; <%= new Date(v.created_at).toLocaleString() %></div>
+    <p><%= v.change_summary %></p>
+  </div>
+  <% }) %>
+</div>
+<% } %>
+
+<!-- Audit -->
+<% if (user.role !== 'customer' && audit.length > 0) { %>
+<div class="section-title">Audit History</div>
+<div class="card">
+  <% audit.forEach(a => { %>
+  <div class="audit-entry">
+    <span class="audit-action"><%= a.action_type %></span> by <%= a.user_name || 'System' %> (<%= a.user_role %>)
+    <span class="audit-time"><%= new Date(a.created_at).toLocaleString() %></span>
+  </div>
+  <% }) %>
+</div>
+<% } %>
+
+<script>
+const CONTRACT_ID = '<%= contract.id %>';
+
+async function signContract() {
+  const name = prompt('Type your full name to sign:');
+  if (!name) return;
+  if (!confirm('By signing, you agree to the terms of this contract. Sign as "' + name + '"?')) return;
+  const res = await fetch('/contracts/' + CONTRACT_ID + '/sign', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ signature_name: name })
+  });
+  if (res.ok) location.reload();
+  else alert('Failed to sign');
+}
+
+async function sendForSignature() {
+  if (!confirm('Send this contract for signature?')) return;
+  const res = await fetch('/contracts/' + CONTRACT_ID + '/send', {
+    method: 'POST', headers: {'Content-Type':'application/json'}
+  });
+  if (res.ok) location.reload();
+  else alert('Failed to send');
+}
+
+async function updateContractStatus(status) {
+  if (!status) return;
+  const res = await fetch('/contracts/' + CONTRACT_ID + '/status', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ status })
+  });
+  if (res.ok) location.reload();
+  else alert('Failed to update');
+}
+</script>
+
+<%- include('layout-foot') %>

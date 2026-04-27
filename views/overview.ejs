@@ -1,0 +1,116 @@
+<%- include('layout-head', { pageTitle: 'Overview', activePage: 'overview' }) %>
+
+<style>
+  .overview-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .overview-header h2 { font-size: 1.3rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+  .org-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+  .org-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 16px; transition: box-shadow 0.2s, transform 0.15s; cursor: pointer; position: relative; overflow: hidden; }
+  .org-card:hover { box-shadow: 0 6px 20px rgba(45, 178, 82, 0.1); transform: translateY(-2px); }
+  .org-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--primary), #7c3aed); opacity: 0; transition: opacity 0.2s; }
+  .org-card:hover::before { opacity: 1; }
+  .org-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .org-card-header img { height: 24px; max-width: 100px; object-fit: contain; }
+  .org-card-header h3 { font-size: 0.9rem; font-weight: 600; margin: 0; flex: 1; }
+  .org-card-header .view-link { font-size: 0.72rem; color: var(--primary); text-decoration: none; padding: 3px 10px; border: 1px solid var(--primary); border-radius: 20px; white-space: nowrap; }
+  .org-card-header .view-link:hover { background: var(--primary); color: #fff; }
+  .org-mini-stats { display: flex; gap: 6px; margin-bottom: 10px; }
+  .mini-stat { flex: 1; text-align: center; padding: 6px 2px; background: var(--bg-primary); border-radius: 6px; cursor: pointer; transition: background 0.15s, transform 0.1s; }
+  .mini-stat:hover { background: var(--primary); transform: scale(1.05); }
+  .mini-stat:hover .num, .mini-stat:hover .lbl { color: #fff !important; opacity: 1 !important; }
+  .mini-stat .num { font-size: 1.1rem; font-weight: 700; color: var(--primary); line-height: 1.2; }
+  .mini-stat .num.warn { color: #f59e0b; }
+  .mini-stat .num.danger { color: #ef4444; }
+  .mini-stat .num.zero { color: var(--text-muted); opacity: 0.5; }
+  .mini-stat .lbl { font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.3px; }
+  .exp-section { margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--border); }
+  .exp-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; font-size: 0.7rem; border-radius: 12px; margin: 2px 2px; text-decoration: none; }
+  .exp-badge.warning { background: #fef3c7; color: #92400e; }
+  .exp-badge.ok { background: #d1fae5; color: #065f46; font-style: italic; }
+  .summary-bar { display: flex; gap: 16px; margin-bottom: 20px; padding: 12px 16px; background: linear-gradient(135deg, #eff6ff, #f0f0ff); border-radius: 10px; border: 1px solid #d1f0d8; }
+  .summary-item { text-align: center; flex: 1; cursor: pointer; padding: 8px; border-radius: 8px; transition: background 0.15s, transform 0.1s; }
+  .summary-item:hover { background: rgba(45, 178, 82, 0.1); transform: translateY(-2px); }
+  .summary-item .big { font-size: 1.5rem; font-weight: 800; color: var(--primary); }
+  .summary-item .big.warn { color: #f59e0b; }
+  .summary-item .small { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+</style>
+
+<%
+  var totals = { quotes: 0, drafts: 0, active: 0, expiring: 0 };
+  orgStats.forEach(function(os) {
+    totals.quotes += os.quotes.total;
+    totals.drafts += os.quotes.draft;
+    totals.active += os.contracts.active;
+    totals.expiring += os.expiring.length;
+  });
+%>
+
+<div class="overview-header">
+  <h2>All Organizations</h2>
+</div>
+
+<div class="summary-bar">
+  <div class="summary-item" onclick="window.location='/dashboard/filter/quotes/Sent'" title="View all sent quotes">
+    <div class="big"><%= totals.quotes %></div>
+    <div class="small">Total Quotes</div>
+  </div>
+  <div class="summary-item" onclick="window.location='/dashboard/filter/quotes/Draft'" title="View all drafts">
+    <div class="big"><%= totals.drafts %></div>
+    <div class="small">Drafts</div>
+  </div>
+  <div class="summary-item" onclick="window.location='/dashboard/filter/contracts/Active'" title="View active contracts">
+    <div class="big"><%= totals.active %></div>
+    <div class="small">Active Contracts</div>
+  </div>
+  <div class="summary-item" onclick="window.location='/dashboard/filter/expiring'" title="View expiring contracts">
+    <div class="big <%= totals.expiring > 0 ? 'warn' : '' %>"><%= totals.expiring %></div>
+    <div class="small">Expiring Soon</div>
+  </div>
+</div>
+
+<div class="org-cards">
+  <% orgStats.forEach(function(os) { %>
+  <div class="org-card" onclick="window.location='/dashboard/<%= os.org.slug %>'">
+    <div class="org-card-header">
+      <% if (os.org.logo_url) { %>
+        <img src="<%= os.org.logo_url %>" alt="<%= os.org.name %>">
+      <% } %>
+      <h3><%= os.org.name %></h3>
+      <a href="/dashboard/<%= os.org.slug %>" class="view-link" onclick="event.stopPropagation()">Open</a>
+    </div>
+
+    <div class="org-mini-stats">
+      <div class="mini-stat" onclick="event.stopPropagation(); window.location='/dashboard/<%= os.org.slug %>'">
+        <div class="num <%= os.quotes.total === 0 ? 'zero' : '' %>"><%= os.quotes.total %></div>
+        <div class="lbl">Quotes</div>
+      </div>
+      <div class="mini-stat" onclick="event.stopPropagation(); window.location='/dashboard/<%= os.org.slug %>?filter=Draft'">
+        <div class="num <%= os.quotes.draft === 0 ? 'zero' : '' %>"><%= os.quotes.draft %></div>
+        <div class="lbl">Drafts</div>
+      </div>
+      <div class="mini-stat" onclick="event.stopPropagation(); window.location='/dashboard/<%= os.org.slug %>?filter=Active'">
+        <div class="num <%= os.contracts.active === 0 ? 'zero' : '' %>"><%= os.contracts.active %></div>
+        <div class="lbl">Active</div>
+      </div>
+      <div class="mini-stat" onclick="event.stopPropagation(); window.location='/dashboard/<%= os.org.slug %>?filter=Expiring'">
+        <div class="num <%= os.expiring.length > 0 ? 'warn' : 'zero' %>"><%= os.expiring.length %></div>
+        <div class="lbl">Expiring</div>
+      </div>
+    </div>
+
+    <% if (os.expiring.length > 0) { %>
+    <div class="exp-section">
+      <% os.expiring.slice(0, 3).forEach(function(c) { %>
+        <a href="/contracts/<%= c.id %>" class="exp-badge warning" onclick="event.stopPropagation()"><%= c.title %> &middot; <%= new Date(c.end_date).toLocaleDateString('en-US', {month:'short', day:'numeric'}) %></a>
+      <% }) %>
+      <% if (os.expiring.length > 3) { %><span class="exp-badge warning">+<%= os.expiring.length - 3 %> more</span><% } %>
+    </div>
+    <% } else { %>
+    <div class="exp-section">
+      <span class="exp-badge ok">All clear</span>
+    </div>
+    <% } %>
+  </div>
+  <% }) %>
+</div>
+
+<%- include('layout-foot') %>

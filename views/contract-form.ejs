@@ -1,0 +1,42 @@
+<%- include('layout-head', { pageTitle: 'New Contract', activePage: 'contracts' }) %>
+
+<div class="page-header"><h2>Create New Contract</h2></div>
+
+<div class="card" style="max-width:800px">
+  <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+  <form method="POST" action="/contracts">
+    <div class="form-group"><label>Title</label><input name="title" class="form-control" placeholder="Contract title" required></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="form-group">
+        <label>Customer</label>
+        <select name="customer_id" class="form-control">
+          <option value="">Select customer...</option>
+          <% customers.forEach(c => { %><option value="<%= c.id %>"><%= c.full_name %> (<%= c.company || c.email %>)</option><% }) %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>From Quote</label>
+        <select name="quote_id" class="form-control">
+          <option value="">No linked quote</option>
+          <% quotes.forEach(q => { %><option value="<%= q.id %>">#<%= q.quote_number %> - <%= q.title %> ($<%= parseFloat(q.total).toFixed(2) %>)</option><% }) %>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+      <div class="form-group"><label>Start Date</label><input name="start_date" type="date" class="form-control"></div>
+      <div class="form-group"><label>End Date</label><input name="end_date" type="date" class="form-control"></div>
+      <div class="form-group"><label>Total Value</label><input name="total_value" type="number" step="0.01" class="form-control" placeholder="0.00"></div>
+    </div>
+    <div class="form-group"><label><input type="checkbox" name="auto_renew"> Auto-renew</label></div>
+    <div class="form-group"><label>Renewal Terms</label><textarea name="renewal_terms" class="form-control" rows="2" placeholder="e.g., Annual renewal at same rate"></textarea></div>
+    <div class="form-group"><label>Contract Body</label><textarea name="contract_body" class="form-control" rows="10" placeholder="Full contract text..."></textarea></div>
+    <div class="form-group"><label>Legal Terms</label><textarea name="legal_terms" class="form-control" rows="4"></textarea></div>
+    <div class="form-group"><label>Internal Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <a href="/contracts" class="btn btn-secondary">Cancel</a>
+      <button type="submit" class="btn btn-primary">Create Contract</button>
+    </div>
+  </form>
+</div>
+
+<%- include('layout-foot') %>

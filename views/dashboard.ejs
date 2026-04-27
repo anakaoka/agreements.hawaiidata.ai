@@ -1,0 +1,165 @@
+<%- include('layout-head', { pageTitle: 'Dashboard', activePage: 'dashboard' }) %>
+
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:16px">
+    <% if (typeof org !== 'undefined' && org && org.logo_url) { %>
+      <img src="<%= org.logo_url %>" alt="<%= org.name %>" style="height:32px;filter:brightness(1.2)">
+    <% } %>
+    <div>
+      <% if (user.role !== "customer") { %><a href="/dashboard" style="color:var(--primary);text-decoration:none;font-size:13px;">&larr; All Organizations</a><% } %>
+      <h2 style="margin-top:4px;"><%= org ? org.name : 'Dashboard' %></h2>
+      <% if (typeof userOrgs !== 'undefined' && userOrgs.length > 1) { %>
+        <div style="margin-top:4px">
+          <select onchange="if(this.value) window.location='/dashboard/'+this.value" class="form-control" style="width:auto;padding:4px 10px;font-size:12px;display:inline-block;background:var(--bg-secondary)">
+            <% userOrgs.forEach(function(o) { %>
+              <option value="<%= o.slug %>" <%= org && org.id === o.id ? 'selected' : '' %>><%= o.name %> (<%= o.domains ? o.domains.join(', ') : '' %>)</option>
+            <% }) %>
+          </select>
+        </div>
+      <% } %>
+    </div>
+  </div>
+  <% if (user.role !== 'customer') { %>
+    <a href="/quotes/new/create" class="btn btn-primary">+ New Quote</a>
+  <% } %>
+</div>
+
+<style>
+  .stat-card-link { text-decoration:none; color:inherit; cursor:pointer; transition: transform 0.1s, box-shadow 0.15s; border-radius:12px; display:block; }
+  .stat-card-link:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(45, 178, 82, 0.12); }
+  .stat-card-link:hover .stat-card { border-color:var(--primary); }
+</style>
+
+<div class="stats-grid">
+  <a class="stat-card-link" href="/dashboard/<%= org ? org.slug : '' %>">
+    <div class="stat-card">
+      <div class="stat-label">Total Quotes</div>
+      <div class="stat-value primary"><%= stats.total %></div>
+    </div>
+  </a>
+  <a class="stat-card-link" href="/dashboard/<%= org ? org.slug : '' %>?filter=Draft">
+    <div class="stat-card">
+      <div class="stat-label">Drafts</div>
+      <div class="stat-value"><%= stats.draft %></div>
+    </div>
+  </a>
+  <a class="stat-card-link" href="/dashboard/<%= org ? org.slug : '' %>?filter=Sent">
+    <div class="stat-card">
+      <div class="stat-label">Sent</div>
+      <div class="stat-value"><%= stats.sent %></div>
+    </div>
+  </a>
+  <a class="stat-card-link" href="/dashboard/<%= org ? org.slug : '' %>?filter=Accepted">
+    <div class="stat-card">
+      <div class="stat-label">Accepted</div>
+      <div class="stat-value"><%= stats.accepted %></div>
+    </div>
+  </a>
+  <a class="stat-card-link" href="/dashboard/<%= org ? org.slug : '' %>?filter=Active">
+    <div class="stat-card">
+      <div class="stat-label">Active Contracts</div>
+      <div class="stat-value primary"><%= stats.contracts_active %></div>
+    </div>
+  </a>
+  <a class="stat-card-link" href="/dashboard/<%= org ? org.slug : '' %>?filter=Pending+Signature">
+    <div class="stat-card">
+      <div class="stat-label">Pending Signature</div>
+      <div class="stat-value"><%= stats.contracts_pending %></div>
+    </div>
+  </a>
+</div>
+
+<% var sf = typeof statusFilter !== 'undefined' ? statusFilter : null; %>
+<% if (sf) { %>
+  <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+    <span style="color:var(--text-muted);font-size:14px;">Filtered: <strong style="color:var(--text-primary)"><%= sf %></strong></span>
+    <a href="/dashboard/<%= org ? org.slug : '' %>" style="color:var(--primary);font-size:13px;">Clear filter</a>
+  </div>
+<% } %>
+
+<div class="tabs">
+  <div class="tab <%= (typeof activeTab === 'undefined' || activeTab === 'quotes') ? 'active' : '' %>" onclick="showTab('quotes')">Quotes (<%= quotes.length %>)</div>
+  <div class="tab <%= (typeof activeTab !== 'undefined' && activeTab === 'contracts') ? 'active' : '' %>" onclick="showTab('contracts')">Contracts (<%= contracts.length %>)</div>
+</div>
+
+<div id="quotes-tab" style="<%= (typeof activeTab !== 'undefined' && activeTab === 'contracts') ? 'display:none' : '' %>">
+<div class="table-container">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Title</th>
+        <% if (user.role !== 'customer') { %><th>Customer</th><% } %>
+        <th>Status</th>
+        <th>Total</th>
+        <th>Updated</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (quotes.length === 0) { %>
+        <tr><td colspan="6"><div class="empty-state"><h3>No quotes<%= sf ? ' with status "' + sf + '"' : '' %></h3><p><%= user.role === 'customer' ? 'No quotes assigned to you.' : (sf ? 'Try clearing the filter.' : 'Create your first quote.') %></p></div></td></tr>
+      <% } else { quotes.forEach(function(q) { %>
+      <tr style="cursor:pointer" onclick="window.location='/quotes/<%= q.id %>'">
+        <td><%= q.quote_number %></td>
+        <td><strong><%= q.title %></strong></td>
+        <% if (user.role !== 'customer') { %>
+          <td><%= q.customer_name || '-' %><br><small style="color:var(--text-muted)"><%= q.customer_company || '' %></small></td>
+        <% } %>
+        <td><span class="badge badge-<%= q.status.toLowerCase().replace(/ /g, '-').replace('ready-for-acceptance','ready') %>"><%= q.status %></span></td>
+        <td>$<%= parseFloat(q.total || 0).toLocaleString('en-US', {minimumFractionDigits:2}) %></td>
+        <td style="color:var(--text-muted);font-size:13px"><%= new Date(q.updated_at).toLocaleDateString() %></td>
+      </tr>
+      <% }) } %>
+    </tbody>
+  </table>
+</div>
+</div>
+
+<div id="contracts-tab" style="<%= (typeof activeTab !== 'undefined' && activeTab === 'contracts') ? '' : 'display:none' %>">
+<div class="table-container">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Title</th>
+        <% if (user.role !== 'customer') { %><th>Customer</th><% } %>
+        <th>Status</th>
+        <th>Value</th>
+        <th>Dates</th>
+        <th>Signatures</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (contracts.length === 0) { %>
+        <tr><td colspan="7"><div class="empty-state"><h3>No contracts<%= sf ? ' with status "' + sf + '"' : '' %></h3></div></td></tr>
+      <% } else { contracts.forEach(function(c) { %>
+      <tr style="cursor:pointer" onclick="window.location='/contracts/<%= c.id %>'">
+        <td><%= c.contract_number %></td>
+        <td><strong><%= c.title %></strong></td>
+        <% if (user.role !== 'customer') { %>
+          <td><%= c.customer_name || '-' %></td>
+        <% } %>
+        <td><span class="badge badge-contract-<%= c.status.toLowerCase().replace(/ /g, '-') %>"><%= c.status %></span></td>
+        <td>$<%= parseFloat(c.total_value || 0).toLocaleString('en-US', {minimumFractionDigits:2}) %></td>
+        <td style="font-size:12px;color:var(--text-muted)"><%= c.start_date ? new Date(c.start_date).toLocaleDateString() : '' %> - <%= c.end_date ? new Date(c.end_date).toLocaleDateString() : '' %></td>
+        <td>
+          <span style="color:<%= c.signed_by_admin ? 'var(--success)' : 'var(--text-muted)' %>">&#9679;</span>
+          <span style="color:<%= c.signed_by_customer ? 'var(--success)' : 'var(--text-muted)' %>">&#9679;</span>
+        </td>
+      </tr>
+      <% }) } %>
+    </tbody>
+  </table>
+</div>
+</div>
+
+<script>
+function showTab(tab) {
+  document.getElementById('quotes-tab').style.display = tab === 'quotes' ? '' : 'none';
+  document.getElementById('contracts-tab').style.display = tab === 'contracts' ? '' : 'none';
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  event.target.classList.add('active');
+}
+</script>
+
+<%- include('layout-foot') %>

@@ -9,28 +9,29 @@ out/
 dist/
 build/
 
-# environment — NEVER commit secrets
+# environment - never commit secrets
 .env
 .env.*
 !.env.example
 
-# database
+# database and private archives
 *.sqlite
 *.sqlite3
 *.db
 *.sql
+*.sql.gz
 *.dump
+storage/
+backups/
+private-not-for-github/
+
+# keys and certificates
+*.key
+*.pem
+*.crt
 
 # generated
 prisma/generated/
-
-# OS / editor
-.DS_Store
-Thumbs.db
-.idea/
-.vscode/
-*.swp
-*.swo
 
 # logs
 *.log
@@ -42,6 +43,14 @@ yarn-error.log*
 # testing
 coverage/
 .nyc_output/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
 
 # misc
 .cache/

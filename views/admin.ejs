@@ -1,0 +1,103 @@
+<%- include('layout-head', { pageTitle: 'Admin - Users', activePage: 'admin' }) %>
+
+<style>
+  .section-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; margin-top:32px; }
+  .section-header:first-child { margin-top:0; }
+  .section-header h2 { font-size:1.1rem; font-weight:700; display:flex; align-items:center; gap:8px; }
+  .section-header .count { background:var(--bg-secondary); border:1px solid var(--border); border-radius:20px; padding:2px 10px; font-size:0.75rem; color:var(--text-muted); font-weight:600; }
+  .user-table { width:100%; border-collapse:collapse; }
+  .user-table th { text-align:left; padding:10px 12px; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); border-bottom:1px solid var(--border); }
+  .user-table td { padding:10px 12px; border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.85rem; vertical-align:middle; }
+  .user-table tr:hover { background:rgba(255,255,255,0.02); }
+  .user-name { font-weight:600; color:var(--text-primary); }
+  .user-email { color:var(--text-muted); font-size:0.8rem; }
+  .user-phone { color:var(--text-muted); font-size:0.8rem; }
+  .user-company { font-size:0.8rem; }
+  .user-orgs { font-size:0.75rem; color:var(--text-muted); margin-top:2px; }
+  .role-badge { display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; }
+  .role-admin { background:rgba(99,102,241,0.15); color:#818cf8; }
+  .role-editor { background:rgba(0,212,170,0.15); color:var(--primary); }
+  .role-customer { background:rgba(148,163,184,0.1); color:#94a3b8; }
+  .status-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
+  .status-active { background:#10b981; }
+  .status-inactive { background:#ef4444; }
+</style>
+
+<div class="page-header">
+  <h2>User Management</h2>
+  <a href="/admin/users/new" class="btn btn-primary">+ New User</a>
+</div>
+
+<!-- Internal Users Section -->
+<div class="section-header">
+  <h2>Internal Users <span class="count"><%= internalUsers.length %></span></h2>
+</div>
+<div class="table-container">
+  <table class="user-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Phone</th>
+        <th>Role</th>
+        <th>Company</th>
+        <th>Organizations</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (internalUsers.length === 0) { %>
+        <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:24px;">No internal users</td></tr>
+      <% } else { internalUsers.forEach(u => { %>
+      <tr>
+        <td><span class="user-name"><%= u.full_name %></span></td>
+        <td><span class="user-email"><%= u.email %></span></td>
+        <td><span class="user-phone"><%= u.phone || '—' %></span></td>
+        <td><span class="role-badge <%= u.role === 'domain_admin' ? 'role-admin' : 'role-editor' %>"><%= u.role === 'domain_admin' ? 'Admin' : 'Editor' %></span></td>
+        <td><span class="user-company"><%= u.company || '—' %></span></td>
+        <td><span class="user-orgs"><%= u.orgs || '—' %></span></td>
+        <td><span class="status-dot <%= u.is_active ? 'status-active' : 'status-inactive' %>"></span><%= u.is_active ? 'Active' : 'Inactive' %></td>
+        <td><a href="/admin/users/<%= u.id %>/edit" class="btn btn-sm btn-secondary">Edit</a></td>
+      </tr>
+      <% }) } %>
+    </tbody>
+  </table>
+</div>
+
+<!-- Customers Section -->
+<div class="section-header" style="margin-top:40px;">
+  <h2>Customers <span class="count"><%= customers.length %></span></h2>
+</div>
+<div class="table-container">
+  <table class="user-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Phone</th>
+        <th>Company</th>
+        <th>Organizations</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (customers.length === 0) { %>
+        <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px;">No customers yet</td></tr>
+      <% } else { customers.forEach(u => { %>
+      <tr>
+        <td><span class="user-name"><%= u.full_name %></span></td>
+        <td><span class="user-email"><%= u.email %></span></td>
+        <td><span class="user-phone"><%= u.phone || '—' %></span></td>
+        <td><span class="user-company"><%= u.company || '—' %></span></td>
+        <td><span class="user-orgs"><%= u.orgs || '—' %></span></td>
+        <td><span class="status-dot <%= u.is_active ? 'status-active' : 'status-inactive' %>"></span><%= u.is_active ? 'Active' : 'Inactive' %></td>
+        <td><a href="/admin/users/<%= u.id %>/edit" class="btn btn-sm btn-secondary">Edit</a></td>
+      </tr>
+      <% }) } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('layout-foot') %>

@@ -1,103 +1,99 @@
 # agreements.hawaiidata.ai
 
-A multi-company SaaS for quoting, emailing, and tracking signed agreements.
+Public-safe archive for `agreements.hawaiidata.ai`, a CRM-style agreement workflow for company users to quote from SKUs, email customers, collect SMS-verified acceptance, track contract dates, and notify management before expiration.
 
-> **Live site status:** Deprecated April 2026. This repo is both the public
-> archive and the full application source — everything needed to run or
-> rebuild the service is here.
+> Live site status: deprecated April 2026.
 
-## What it does
+This repository intentionally contains two independent apps:
 
-1. **Companies register** and get their own isolated workspace.
-2. **Admins build a SKU catalog** — reusable products/services with prices.
-3. **Editors create quotes** from SKUs, add line items, set validity dates.
-4. **Quote is emailed** to the customer (SendGrid) with a unique one-time link.
-5. **Customer verifies identity via SMS** (Twilio Verify) then clicks "I Agree".
-6. **Full audit log** is saved: IP, timestamp, user-agent, SMS verification.
-7. **Confirmation email** goes to the customer; quote status flips to ACCEPTED.
-8. **Management is alerted** 30, 7, and 1 day before a quote expires (cron job).
+- **Original production app:** Node.js / Express / EJS / PostgreSQL recovered from the live server before deletion.
+- **Next.js rebuild:** Next.js 14 / TypeScript / Prisma implementation of the same product direction.
 
-## Tech stack
+Neither app includes production secrets, database rows, signed agreements, customer PII, SSL private keys, or SSH material.
 
-| Layer | Tool |
-|---|---|
-| Framework | Next.js 14 (App Router) |
-| Language | TypeScript |
-| Database | PostgreSQL + Prisma ORM |
-| Auth | NextAuth.js (JWT, email+password) |
-| Email | SendGrid |
-| SMS 2FA | Twilio Verify |
-| Styling | Tailwind CSS |
-| Scheduling | node-cron (via Next.js instrumentation) |
+## Product Workflow
 
-## Roles
+1. Create company users who can quote from a managed SKU catalog.
+2. Email quotes to customers with unique review links.
+3. Verify the customer by SMS 2FA before they agree to the quote.
+4. Track accepted quotes from install/start date through expiration.
+5. Notify management when agreements are near expiration.
 
-| Role | Can do |
-|---|---|
-| `EDITOR` | Create quotes, add line items |
-| `DOMAIN_ADMIN` | Everything above + override pricing, lock items, manage SKUs, approve quotes |
-| `SUPER_ADMIN` | Platform-wide access (operators only) |
+## Running The Next.js Rebuild
 
-## Quick start
+The root `package.json` is for the Next.js rebuild.
 
 ```bash
-# 1. Clone and install
-git clone https://github.com/anakaoka/agreements.hawaiidata.ai.git
-cd agreements.hawaiidata.ai
 npm install
-
-# 2. Copy and fill in env vars
 cp .env.example .env
-# Edit .env — you need: DATABASE_URL, NEXTAUTH_SECRET, SendGrid key, Twilio creds
-
-# 3. Set up the database
-npm run db:push        # apply schema to a new Postgres DB
-# (or: npm run db:migrate for a migration-tracked setup)
-
-# 4. Run dev server
+npm run db:push
 npm run dev
-# → http://localhost:3000
-
-# 5. Register your first company at http://localhost:3000/register
 ```
 
-## Production deployment (single VPS)
+Open `http://localhost:3000` and register the first company.
+
+Main files:
+
+- `src/app/` - App Router pages and API routes
+- `src/lib/` - auth, quote, SendGrid, Twilio, cron helpers
+- `prisma/schema.prisma` - rebuild database schema
+- `RESTORE.md` - restore/rebuild playbook
+
+## Running The Original Express App
+
+The recovered Express app remains at the repo root as archival source:
+
+- `server.js`
+- `routes/`
+- `views/`
+- `lib/`
+- `middleware/`
+- `public/`
+- `db/schema.sql`
+- `deploy/`
+- `runbook.md`
+
+Because the root `package.json` belongs to the Next.js rebuild, restore the Express dependency manifest from the `main` history if you want to run the recovered production app exactly as archived:
 
 ```bash
-npm run build
-npm run start          # runs on port 3000; put nginx in front
+git show origin/main:package.json > package.express.json
 ```
 
-The cron job (expiry alerts) starts automatically via `src/instrumentation.ts`
-when the Node.js runtime starts. No separate process needed.
+Then use the dependencies documented there with the recovered schema:
 
-See `RESTORE.md` for a full re-provisioning checklist.
+```bash
+cp .env.example .env
+createdb agreements
+psql agreements < db/schema.sql
+node server.js
+```
 
-## Environment variables
+## Environment Variables
 
-See `.env.example` for all required variables and where to get them:
+`.env.example` contains the union of both apps' configuration:
 
-- **DATABASE_URL** — PostgreSQL connection string
-- **NEXTAUTH_SECRET** — random 32-byte string (`openssl rand -base64 32`)
-- **NEXTAUTH_URL** — public URL of the app
-- **SENDGRID_API_KEY** / **SENDGRID_FROM_EMAIL** — verified SendGrid sender
-- **TWILIO_ACCOUNT_SID** / **TWILIO_AUTH_TOKEN** / **TWILIO_VERIFY_SERVICE_SID**
+- Express: `SESSION_SECRET`, `PORT`, `BASE_URL`, Google OAuth, Microsoft OAuth, `TWILIO_FROM`
+- Next.js: `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `TWILIO_VERIFY_SERVICE_SID`
+- Shared: `DATABASE_URL`, SendGrid, Twilio account credentials
 
-## Legal compliance
+Always create fresh credentials before restoring service.
 
-This system is designed to satisfy ESIGN / UETA requirements for electronic
-agreements. See `docs/legal-enforceability.md` for the full analysis.
+## Public Repo Safety
 
-Key implementation points:
-- Customer identity tied to a verified email + phone (2FA)
-- Affirmative acceptance action ("I Agree" button after SMS verify)
-- Electronic consent disclosure shown before acceptance
-- Audit log: IP, timestamp, user-agent, agreement version, SMS verification status
-- Confirmation email serves as the customer's electronic receipt
+Do not commit:
+
+- `.env` files or API keys
+- Production database dumps with rows
+- `storage/` contract PDFs or generated customer artifacts
+- SSL private keys or SSH material
+- Customer names, email addresses, signatures, or accepted contract records
+
+If customer records need to be preserved, store them in an encrypted private backup outside this public repository.
 
 ## Docs
 
-- `docs/legal-enforceability.md` — ESIGN/UETA analysis
-- `docs/scope-domain-admin-line-items.md` — last scope update before deprecation
-- `scripts/backup-server.sh` — server backup script (for ops)
-- `RESTORE.md` — rebuild playbook
+- `RESTORE.md` - rebuild playbook
+- `runbook.md` - original Express deployment notes
+- `docs/legal-enforceability.md` - ESIGN/UETA analysis
+- `docs/scope-domain-admin-line-items.md` - domain admin line-item scope
+- `docs/product-workflow.md` - workflow map from the recovered app

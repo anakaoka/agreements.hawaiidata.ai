@@ -1,18 +1,57 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# production builds
+.next/
+out/
+dist/
+build/
+
+# environment - never commit secrets
 .env
 .env.*
 !.env.example
 
-node_modules/
-npm-debug.log*
-
+# database and private archives
+*.sqlite
+*.sqlite3
+*.db
+*.sql
+*.sql.gz
+*.dump
 storage/
 backups/
 private-not-for-github/
-*.sql.gz
-*.dump
-*.bak
+
+# keys and certificates
 *.key
 *.pem
 *.crt
 
+# generated
+prisma/generated/
+
+# logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# testing
+coverage/
+.nyc_output/
+
+# OS/editor
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# misc
+.cache/
+tmp/
